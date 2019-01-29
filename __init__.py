@@ -6,6 +6,7 @@ from SPARQLWrapper import SPARQLWrapper, JSON, POSTDIRECTLY
 from string import Template
 from rdflib import Graph
 from .graph import Graph as g
+import random
 WRAPPER = "http://graphdb.sti2.at:8080/repositories/broker-graph"
 GRAPH_LINK = "https://broker.semantify.it/graph/O89n4PteKl/Wc8XrLETTj/latest"
 #newer link:
@@ -23,6 +24,8 @@ class SkillMovie(MycroftSkill):
         self.release = "unknown release date"
         self.productionStudio = "unknown production studio"
         self.production= "unknown country"
+        self.genre= "none"
+        self.movie= "none"
 
     def initialize(self):
         self.register_intent_file("director.intent", self.handle_director)
@@ -33,6 +36,7 @@ class SkillMovie(MycroftSkill):
         self.register_intent_file("productionStudio.intent", self.handle_productionStudio)
         self.register_intent_file("production.intent", self.handle_production)
         self.register_intent_file("directorOfMovie.intent", self.handle_directorOfMovie)
+        self.register_intent_file("genre.intent", self.handle_genre)
 
     @intent_file_handler('director.intent')
     def handle_director(self, message):
@@ -249,16 +253,16 @@ class SkillMovie(MycroftSkill):
         actor = message.data["actor"]
         sparql = SPARQLWrapper("http://graphdb.sti2.at:8080/repositories/broker-graph")
         qt = Template("""
-                PREFIX schema: <http://schema.org/>
-                SELECT ?actor_name
-                FROM <https://broker.semantify.it/graph/O89n4PteKl/Wc8XrLETTj/latest>
-                WHERE {
-                    ?movie a schema:Movie.
-                    ?movie schema:name "$movie_name".
-                    ?movie schema:actor ?actor.
-                    ?actor schema:name ?actor_name.
-                }
-                """)
+            PREFIX schema: <http://schema.org/>
+            SELECT ?actor_name
+            FROM <https://broker.semantify.it/graph/O89n4PteKl/Wc8XrLETTj/latest>
+            WHERE {
+                ?movie a schema:Movie.
+                ?movie schema:name "$movie_name".
+                ?movie schema:actor ?actor.
+                ?actor schema:name ?actor_name.
+            }
+            """)
         sparql.setQuery(qt.substitute({"movie_name": movie}))
         sparql.setReturnFormat(JSON)
         results = sparql.query().convert()
@@ -269,6 +273,74 @@ class SkillMovie(MycroftSkill):
                 self.speak_dialog('actorOfMovie', data={'movie': movie, 'actor': actor})
                 return
         self.speak_dialog('notActorOfMovie', data={'movie': movie, 'actor': actor})
+
+    @intent_file_handler('genre.intent')
+    def handle_genre(self, message):
+        sparql = SPARQLWrapper("http://graphdb.sti2.at:8080/repositories/broker-graph")
+        qt = Template("""
+            PREFIX schema: <http://schema.org/>
+            SELECT ?genre
+            FROM <https://broker.semantify.it/graph/O89n4PteKl/Wc8XrLETTj/latest>
+            WHERE {
+                ?movie a schema:Movie.
+                ?movie schema:genre ?genre.
+            }
+            """)
+        sparql.setQuery(qt.substitute())
+        sparql.setReturnFormat(JSON)
+        results = sparql.query().convert()
+        self.genre = []
+        for result in results["results"]["bindings"]:
+            self.genre.append(result["genre"]["value"])
+        set(self.genre)
+        self.speak_dialog('genre', data={'genre': self.genre})
+
+    @intent_file_handler('suggestByGenre.intent')
+    def handle_suggestByGenre(self, message):
+        genre = message.data["genre"]
+        sparql = SPARQLWrapper("http://graphdb.sti2.at:8080/repositories/broker-graph")
+        qt = Template("""
+            PREFIX schema: <http://schema.org/>
+            SELECT *
+            FROM <https://broker.semantify.it/graph/O89n4PteKl/Wc8XrLETTj/latest>
+            WHERE {
+                ?movie a schema:Movie.
+                ?movie schema:name ?movie_name.
+                ?movie schema:genre ?genre.
+            }
+            """)
+        sparql.setQuery(qt.substitute({'genre': genre}))
+        sparql.setReturnFormat(JSON)
+        results = sparql.query().convert()
+        print(results)
+        self.movie = []
+        for result in results["results"]["bindings"]:
+            if (result["genre"]["value"]).lower() == genre.lower():
+                self.movie.append(result["movie_name"]["value"])
+        self.movie = self.movie[random.randint(0, len(self.movie) - 1)]
+        self.speak_dialog('suggestByGenre', data={'movie': self.movie})
+
+    @intent_file_handler('moviesOfDirector.intent')
+    def handle_director(self, message):
+        director = message.data["director"]
+        sparql = SPARQLWrapper("http://graphdb.sti2.at:8080/repositories/broker-graph")
+        qt = Template("""
+            PREFIX schema: <http://schema.org/>
+            SELECT ?movie_name
+            FROM <https://broker.semantify.it/graph/O89n4PteKl/Wc8XrLETTj/latest>
+            WHERE {
+                ?movie a schema:movie.
+            }
+            """)
+        sparql.setQuery(qt.substitute({"director_name": director}))
+        sparql.setReturnFormat(JSON)
+        results = sparql.query().convert()
+        self.movie = []
+        print(results)
+        for result in results["results"]["bindings"]:
+            self.movie.append(result["movie_name"]["value"])
+        #self.speak_dialog('moviesOfDirector', data={'movie': self.movie, 'director': director})
+
 
 
 def create_skill():
