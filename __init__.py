@@ -48,12 +48,17 @@ class SkillMovie(MycroftSkill):
             FROM <https://broker.semantify.it/graph/O89n4PteKl/Wc8XrLETTj/latest>
             WHERE {
                 ?movie a schema:Movie.
-                ?movie schema:name "$movie_name".
+                ?movie schema:name ?movie_name.
                 ?movie schema:director ?director.
                 ?director schema:name ?director_name.
+                $regex
             }
         """)
-        sparql.setQuery(qt.substitute({"movie_name": movie}))
+        regex = ""
+        for i in range(len(movie.split())):
+            regex += "FILTER regex(?movie_name, \"" + movie.split()[i] + "\", \" i \").\n"
+        print(regex)
+        sparql.setQuery(qt.substitute({"regex": regex}))
         sparql.setReturnFormat(JSON)
         results = sparql.query().convert()
         for result in results["results"]["bindings"]:
@@ -319,29 +324,6 @@ class SkillMovie(MycroftSkill):
                 self.movie.append(result["movie_name"]["value"])
         self.movie = self.movie[random.randint(0, len(self.movie) - 1)]
         self.speak_dialog('suggestByGenre', data={'movie': self.movie})
-
-    @intent_file_handler('moviesOfDirector.intent')
-    def handle_director(self, message):
-        director = message.data["director"]
-        sparql = SPARQLWrapper("http://graphdb.sti2.at:8080/repositories/broker-graph")
-        qt = Template("""
-            PREFIX schema: <http://schema.org/>
-            SELECT ?movie_name
-            FROM <https://broker.semantify.it/graph/O89n4PteKl/Wc8XrLETTj/latest>
-            WHERE {
-                ?movie a schema:movie.
-            }
-            """)
-        sparql.setQuery(qt.substitute({"director_name": director}))
-        sparql.setReturnFormat(JSON)
-        results = sparql.query().convert()
-        self.movie = []
-        print(results)
-        for result in results["results"]["bindings"]:
-            self.movie.append(result["movie_name"]["value"])
-        #self.speak_dialog('moviesOfDirector', data={'movie': self.movie, 'director': director})
-
-
 
 def create_skill():
     return SkillMovie()
