@@ -50,17 +50,18 @@ class SkillMovie(MycroftSkill):
                 ?movie a schema:Movie.
                 ?movie schema:name ?movie_name.
                 ?movie schema:director ?director.
-                ?director schema:name ?director_name.
+                ?director schema:name ?director_name. 
                 $regex
             }
         """)
         regex = ""
         for i in range(len(movie.split())):
             regex += "FILTER regex(?movie_name, \"" + movie.split()[i] + "\", \" i \").\n"
-        print(regex)
+        print(qt.substitute({"regex": regex}))
         sparql.setQuery(qt.substitute({"regex": regex}))
         sparql.setReturnFormat(JSON)
         results = sparql.query().convert()
+        print(results)
         for result in results["results"]["bindings"]:
             self.director = result["director_name"]["value"]
         self.speak_dialog('director', data={'movie': movie, 'director': self.director})
