@@ -26,6 +26,7 @@ class SkillMovie(MycroftSkill):
         self.production= "unknown country"
         self.genre= "none"
         self.movie= "none"
+        self.rating= "no rating available"
 
     def initialize(self):
         self.register_intent_file("director.intent", self.handle_director)
@@ -37,6 +38,8 @@ class SkillMovie(MycroftSkill):
         self.register_intent_file("production.intent", self.handle_production)
         self.register_intent_file("directorOfMovie.intent", self.handle_directorOfMovie)
         self.register_intent_file("genre.intent", self.handle_genre)
+        self.register_intent_file("rating.intent", self.handle_rating)
+        self.register_intent_file("topGenre.intent", self.handle_topGenre)
 
     @intent_file_handler('director.intent')
     def handle_director(self, message):
@@ -45,18 +48,18 @@ class SkillMovie(MycroftSkill):
         qt = Template("""
             PREFIX schema: <http://schema.org/>
             SELECT ?director_name
-            FROM <https://broker.semantify.it/graph/O89n4PteKl/Wc8XrLETTj/latest>
-            WHERE {
-                ?movie a schema:Movie.
-                ?movie schema:name ?movie_name.
-                ?movie schema:director ?director.
-                ?director schema:name ?director_name. 
-                $regex
+                    FROM <https://broker.semantify.it/graph/O89n4PteKl/Wc8XrLETTj/latest>
+                    WHERE {
+                        ?movie a schema:Movie.
+                        ?movie schema:name ?movie_name.
+                        ?movie schema:director ?director.
+                        ?director schema:name ?director_name.
+                        $regex
             }
-        """)
+            """)
         regex = ""
         for i in range(len(movie.split())):
-            regex += "FILTER regex(?movie_name, \"" + movie.split()[i] + "\", \" i \").\n"
+            regex += "FILTER regex(?movie_name, \"" + movie.split()[i] + "\", \"i\").\n"
         print(qt.substitute({"regex": regex}))
         sparql.setQuery(qt.substitute({"regex": regex}))
         sparql.setReturnFormat(JSON)
@@ -76,16 +79,21 @@ class SkillMovie(MycroftSkill):
             FROM <https://broker.semantify.it/graph/O89n4PteKl/Wc8XrLETTj/latest>
             WHERE {
                 ?movie a schema:Movie.
-                ?movie schema:name "$movie_name".
+                ?movie schema:name ?movie_name.
                 ?movie schema:actor ?actor.
                 ?actor schema:name ?actor_name.
+                $regex
             }
         """)
-        sparql.setQuery(qt.substitute({"movie_name": movie}))
+        regex = ""
+        for i in range(len(movie.split())):
+            regex += "FILTER regex(?movie_name, \"" + movie.split()[i] + "\", \"i\").\n"
+        sparql.setQuery(qt.substitute({"regex": regex}))
         sparql.setReturnFormat(JSON)
         results = sparql.query().convert()
+        self.actor = []
         for result in results["results"]["bindings"]:
-            self.actor = result["actor_name"]["value"]
+            self.actor.append(result["actor_name"]["value"])
         self.speak_dialog('actor', data={'movie': movie, 'actor': self.actor})
 
 
@@ -99,11 +107,15 @@ class SkillMovie(MycroftSkill):
             FROM <https://broker.semantify.it/graph/O89n4PteKl/Wc8XrLETTj/latest>
             WHERE {
                 ?movie a schema:Movie.
-                ?movie schema:name "$movie_name".
+                ?movie schema:name ?movie_name.
                 ?movie schema:description ?description.
+                $regex
                 }
             """)
-        sparql.setQuery(qt.substitute({"movie_name": movie}))
+        regex = ""
+        for i in range(len(movie.split())):
+            regex += "FILTER regex(?movie_name, \"" + movie.split()[i] + "\", \"i\").\n"
+        sparql.setQuery(qt.substitute({"regex": regex}))
         sparql.setReturnFormat(JSON)
         results = sparql.query().convert()
         for result in results["results"]["bindings"]:
@@ -121,11 +133,15 @@ class SkillMovie(MycroftSkill):
             FROM <https://broker.semantify.it/graph/O89n4PteKl/Wc8XrLETTj/latest>
             WHERE {
                 ?movie a schema:Movie.
-                ?movie schema:name "$movie_name".
+                ?movie schema:name ?movie_name.
                 ?movie schema:duration ?duration.
+                $regex
                 }
             """)
-        sparql.setQuery(qt.substitute({"movie_name": movie}))
+        regex = ""
+        for i in range(len(movie.split())):
+            regex += "FILTER regex(?movie_name, \"" + movie.split()[i] + "\", \"i\").\n"
+        sparql.setQuery(qt.substitute({"regex": regex}))
         sparql.setReturnFormat(JSON)
         results = sparql.query().convert()
         print(results)
@@ -133,28 +149,8 @@ class SkillMovie(MycroftSkill):
             self.duration = result["duration"]["value"]
             print(self.duration)
         self.speak_dialog('duration', data={'movie': movie, 'duration': self.duration})
+        #TODO: format output
 
-    @intent_file_handler('duration.intent')
-    def handle_duration(self, message):
-        movie = message.data["movie"]
-        sparql = SPARQLWrapper("http://graphdb.sti2.at:8080/repositories/broker-graph")
-        qt = Template("""
-            PREFIX schema: <http://schema.org/>
-            SELECT ?duration
-            FROM <https://broker.semantify.it/graph/O89n4PteKl/Wc8XrLETTj/latest>
-            WHERE {
-                ?movie a schema:Movie.
-                ?movie schema:name "$movie_name".
-                ?movie schema:duration ?duration.
-                }
-            """)
-        sparql.setQuery(qt.substitute({"movie_name": movie}))
-        sparql.setReturnFormat(JSON)
-        results = sparql.query().convert()
-        print(results)
-        for result in results["results"]["bindings"]:
-            self.duration = result["duration"]["value"]
-        self.speak_dialog('duration', data={'movie': movie, 'duration': self.duration})
 
     @intent_file_handler('release.intent')
     def handle_release(self, message):
@@ -166,11 +162,15 @@ class SkillMovie(MycroftSkill):
             FROM <https://broker.semantify.it/graph/O89n4PteKl/Wc8XrLETTj/latest>
             WHERE {
                 ?movie a schema:Movie.
-                ?movie schema:name "$movie_name".
+                ?movie schema:name ?movie_name.
                 ?movie schema:datePublished ?datePublished.
+                $regex
             }
             """)
-        sparql.setQuery(qt.substitute({"movie_name": movie}))
+        regex = ""
+        for i in range(len(movie.split())):
+            regex += "FILTER regex(?movie_name, \"" + movie.split()[i] + "\", \"i\").\n"
+        sparql.setQuery(qt.substitute({"regex": regex}))
         sparql.setReturnFormat(JSON)
         results = sparql.query().convert()
         print(results)
@@ -188,12 +188,16 @@ class SkillMovie(MycroftSkill):
             FROM <https://broker.semantify.it/graph/O89n4PteKl/Wc8XrLETTj/latest>
             WHERE {
                 ?movie a schema:Movie.
-                ?movie schema:name "$movie_name".
+                ?movie schema:name ?movie_name.
                 ?movie schema:productionCompany ?productionCompany.
                 ?productionCompany schema:name ?name.
+                $regex
             }
             """)
-        sparql.setQuery(qt.substitute({"movie_name": movie}))
+        regex = ""
+        for i in range(len(movie.split())):
+            regex += "FILTER regex(?movie_name, \"" + movie.split()[i] + "\", \"i\").\n"
+        sparql.setQuery(qt.substitute({"regex": regex}))
         sparql.setReturnFormat(JSON)
         results = sparql.query().convert()
         print(results)
@@ -236,12 +240,16 @@ class SkillMovie(MycroftSkill):
             FROM <https://broker.semantify.it/graph/O89n4PteKl/Wc8XrLETTj/latest>
             WHERE {
                 ?movie a schema:Movie.
-                ?movie schema:name "$movie_name".
+                ?movie schema:name ?movie_name.
                 ?movie schema:director ?director.
                 ?director schema:name ?director_name.
+                $regex
             }
             """)
-        sparql.setQuery(qt.substitute({"movie_name": movie}))
+        regex = ""
+        for i in range(len(movie.split())):
+            regex += "FILTER regex(?movie_name, \"" + movie.split()[i] + "\", \"i\").\n"
+        sparql.setQuery(qt.substitute({"regex": regex}))
         sparql.setReturnFormat(JSON)
         results = sparql.query().convert()
         print(results)
@@ -264,12 +272,16 @@ class SkillMovie(MycroftSkill):
             FROM <https://broker.semantify.it/graph/O89n4PteKl/Wc8XrLETTj/latest>
             WHERE {
                 ?movie a schema:Movie.
-                ?movie schema:name "$movie_name".
+                ?movie schema:name ?movie_name.
                 ?movie schema:actor ?actor.
                 ?actor schema:name ?actor_name.
+                $regex
             }
             """)
-        sparql.setQuery(qt.substitute({"movie_name": movie}))
+        regex = ""
+        for i in range(len(movie.split())):
+            regex += "FILTER regex(?movie_name, \"" + movie.split()[i] + "\", \"i\").\n"
+        sparql.setQuery(qt.substitute({"regex": regex}))
         sparql.setReturnFormat(JSON)
         results = sparql.query().convert()
         print(results)
@@ -325,6 +337,66 @@ class SkillMovie(MycroftSkill):
                 self.movie.append(result["movie_name"]["value"])
         self.movie = self.movie[random.randint(0, len(self.movie) - 1)]
         self.speak_dialog('suggestByGenre', data={'movie': self.movie})
+
+    @intent_file_handler('rating.intent')
+    def handle_rating(self, message):
+        movie = message.data["movie"]
+        sparql = SPARQLWrapper("http://graphdb.sti2.at:8080/repositories/broker-graph")
+        qt = Template("""
+                PREFIX schema: <http://schema.org/>
+                SELECT ?ratingValue
+                        FROM <https://broker.semantify.it/graph/O89n4PteKl/Wc8XrLETTj/latest>
+                        WHERE {
+                            ?movie a schema:Movie.
+                            ?movie schema:name ?movie_name.
+                            ?movie schema:aggregateRating ?rating.
+                            ?rating schema:ratingValue ?ratingValue.
+                            $regex
+                }
+                """)
+        regex = ""
+        for i in range(len(movie.split())):
+            regex += "FILTER regex(?movie_name, \"" + movie.split()[i] + "\", \"i\").\n"
+        print(qt.substitute({"regex": regex}))
+        sparql.setQuery(qt.substitute({"regex": regex}))
+        sparql.setReturnFormat(JSON)
+        results = sparql.query().convert()
+        print(results)
+        for result in results["results"]["bindings"]:
+            self.rating = result["ratingValue"]["value"]
+        self.speak_dialog('rating', data={'movie': movie, 'rating': self.rating})
+
+        @intent_file_handler('topGenre.intent')
+        def handle_topGenre(self, message):
+            genre = message.data["genre"]
+            sparql = SPARQLWrapper("http://graphdb.sti2.at:8080/repositories/broker-graph")
+            qt = Template("""
+                        PREFIX schema: <http://schema.org/>
+                        SELECT ?movie_name
+                                FROM <https://broker.semantify.it/graph/O89n4PteKl/Wc8XrLETTj/latest>
+                                WHERE {
+                                    ?movie a schema:Movie.
+                                    ?movie schema:name ?movie_name. 
+                                    ?movie schema:genre ?genre.
+                                    ?movie schema:aggregateRating ?rating.
+                                    ?rating schema:ratingValue ?ratingValue.
+                                    $regex
+                                }
+                     ORDER BY DESC(?ratingValue)
+                     LIMIT 5
+                    """)
+            regex = ""
+            for i in range(len(genre.split())):
+                regex += "FILTER regex(?genre, \"" + genre.split()[i] + "\", \"i\").\n"
+            sparql.setQuery(qt.substitute({"regex": regex}))
+            sparql.setReturnFormat(JSON)
+            results = sparql.query().convert()
+            self.rating = []
+            for result in results["results"]["bindings"]:
+                self.rating.append(result["movie_name"]["value"])
+            self.speak_dialog('topGenre', data={'movie': movie, 'genre': genre})
+
+
 
 def create_skill():
     return SkillMovie()

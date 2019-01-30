@@ -1,3 +1,3 @@
-was {director} the director of {movie}
+was {director} (director | the director) of {movie}
 did {director} direct {movie}
 
