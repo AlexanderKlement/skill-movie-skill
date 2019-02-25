@@ -39,7 +39,7 @@ class SkillMovie(MycroftSkill):
         self.register_intent_file("directorOfMovie.intent", self.handle_directorOfMovie)
         self.register_intent_file("genre.intent", self.handle_genre)
         self.register_intent_file("rating.intent", self.handle_rating)
-        self.register_intent_file("topGenre.intent", self.handle_topGenre)
+        #self.register_intent_file("topGenre.intent", self.handle_topGenre)
 
     @intent_file_handler('director.intent')
     def handle_director(self, message):
@@ -366,36 +366,37 @@ class SkillMovie(MycroftSkill):
             self.rating = result["ratingValue"]["value"]
         self.speak_dialog('rating', data={'movie': movie, 'rating': self.rating})
 
-        @intent_file_handler('topGenre.intent')
-        def handle_topGenre(self, message):
-            genre = message.data["genre"]
-            sparql = SPARQLWrapper("http://graphdb.sti2.at:8080/repositories/broker-graph")
-            qt = Template("""
-                        PREFIX schema: <http://schema.org/>
-                        SELECT ?movie_name
-                                FROM <https://broker.semantify.it/graph/O89n4PteKl/Wc8XrLETTj/latest>
-                                WHERE {
-                                    ?movie a schema:Movie.
-                                    ?movie schema:name ?movie_name. 
-                                    ?movie schema:genre ?genre.
-                                    ?movie schema:aggregateRating ?rating.
-                                    ?rating schema:ratingValue ?ratingValue.
-                                    $regex
-                                }
-                     ORDER BY DESC(?ratingValue)
-                     LIMIT 5
-                    """)
-            regex = ""
-            for i in range(len(genre.split())):
-                regex += "FILTER regex(?genre, \"" + genre.split()[i] + "\", \"i\").\n"
-            sparql.setQuery(qt.substitute({"regex": regex}))
-            sparql.setReturnFormat(JSON)
-            results = sparql.query().convert()
-            self.rating = []
-            for result in results["results"]["bindings"]:
-                self.rating.append(result["movie_name"]["value"])
-            self.speak_dialog('topGenre', data={'movie': movie, 'genre': genre})
-
+    '''
+    @intent_file_handler('topGenre.intent')
+    def handle_topGenre(self, message):
+        genre = message.data["genre"]
+        sparql = SPARQLWrapper("http://graphdb.sti2.at:8080/repositories/broker-graph")
+        qt = Template("""
+            PREFIX schema: <http://schema.org/>
+            SELECT ?movie_name
+                    FROM <https://broker.semantify.it/graph/O89n4PteKl/Wc8XrLETTj/latest>
+                    WHERE {
+                        ?movie a schema:Movie.
+                        ?movie schema:name ?movie_name. 
+                        ?movie schema:genre ?genre.
+                        ?movie schema:aggregateRating ?rating.
+                        ?rating schema:ratingValue ?ratingValue.
+                        $regex
+                    }
+         ORDER BY DESC(?ratingValue)
+         LIMIT 5
+        """)
+        regex = ""
+        for i in range(len(genre.split())):
+            regex += "FILTER regex(?genre, \"" + genre.split()[i] + "\", \"i\").\n"
+        sparql.setQuery(qt.substitute({"regex": regex}))
+        sparql.setReturnFormat(JSON)
+        results = sparql.query().convert()
+        self.movie = []
+        for result in results["results"]["bindings"]:
+            self.movie.append(result["movie_name"]["value"])
+        self.speak_dialog('topGenre', data={'movie': self.movie, 'genre': genre})
+        '''
 
 
 def create_skill():
